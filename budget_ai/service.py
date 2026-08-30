@@ -6,6 +6,7 @@ from budget_ai.categories import (
 )
 from budget_ai.contracts import Transaction
 from budget_ai.database import BudgetDatabase
+from budget_ai.excel import ExcelBudgetWriter
 from budget_ai.transactions import TransactionManager
 
 
@@ -14,9 +15,7 @@ class BudgetService:
         self,
         database_path: str | Path = "data/budget.db",
     ):
-        self.database = BudgetDatabase(
-            database_path
-        )
+        self.database = BudgetDatabase(database_path)
 
         self.transactions = TransactionManager(
             self.database
@@ -30,16 +29,12 @@ class BudgetService:
         self,
         transaction: Transaction,
     ) -> Transaction:
-        learned_category = (
-            self.categories.categorize(
-                transaction
-            )
+        learned_category = self.categories.categorize(
+            transaction
         )
 
         if learned_category is not None:
-            transaction.category = (
-                learned_category
-            )
+            transaction.category = learned_category
 
         self.transactions.add_transaction(
             transaction
@@ -74,6 +69,29 @@ class BudgetService:
         self,
     ) -> list[str]:
         return DEFAULT_CATEGORIES.copy()
+
+    def sync_excel(
+        self,
+        workbook_path: str | Path,
+        year: int,
+        month: int,
+        output_path: str | Path | None = None,
+    ) -> Path:
+        writer = ExcelBudgetWriter(
+            workbook_path
+        )
+
+        transactions = (
+            self.transactions.list_transactions()
+        )
+
+        return writer.sync_month(
+            transactions=transactions,
+            categories=DEFAULT_CATEGORIES,
+            year=year,
+            month=month,
+            output_path=output_path,
+        )
 
     def close(self) -> None:
         self.database.close()
