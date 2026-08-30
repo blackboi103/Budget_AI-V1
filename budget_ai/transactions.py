@@ -1,23 +1,45 @@
 from budget_ai.contracts import Transaction
+from budget_ai.database import BudgetDatabase
 
 
 class TransactionManager:
-    def __init__(self):
-        self._transactions: dict[str, Transaction] = {}
+    def __init__(
+        self,
+        database: BudgetDatabase | None = None,
+    ):
+        if database is None:
+            database = BudgetDatabase(":memory:")
 
-    def add_transaction(self, transaction: Transaction) -> None:
-        if transaction.transaction_id in self._transactions:
-            raise ValueError(
-                f"Transaction '{transaction.transaction_id}' already exists."
-            )
+        self.database = database
 
-        self._transactions[transaction.transaction_id] = transaction
+    def add_transaction(
+        self,
+        transaction: Transaction,
+    ) -> None:
+        self.database.add_transaction(transaction)
 
-    def get_transaction(self, transaction_id: str) -> Transaction | None:
-        return self._transactions.get(transaction_id)
+    def get_transaction(
+        self,
+        transaction_id: str,
+    ) -> Transaction | None:
+        return self.database.get_transaction(
+            transaction_id
+        )
 
-    def list_transactions(self) -> list[Transaction]:
-        return list(self._transactions.values())
+    def list_transactions(
+        self,
+    ) -> list[Transaction]:
+        return self.database.list_transactions()
 
     def count(self) -> int:
-        return len(self._transactions)
+        return self.database.count_transactions()
+
+    def update_category(
+        self,
+        transaction_id: str,
+        category: str,
+    ) -> None:
+        self.database.update_transaction_category(
+            transaction_id,
+            category,
+        )

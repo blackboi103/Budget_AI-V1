@@ -1,24 +1,56 @@
-from budget_ai.categories import CategoryManager, DEFAULT_CATEGORIES
+from pathlib import Path
+
+from budget_ai.categories import (
+    CategoryManager,
+    DEFAULT_CATEGORIES,
+)
 from budget_ai.contracts import Transaction
+from budget_ai.database import BudgetDatabase
 from budget_ai.transactions import TransactionManager
 
 
 class BudgetService:
-    def __init__(self):
-        self.transactions = TransactionManager()
-        self.categories = CategoryManager()
+    def __init__(
+        self,
+        database_path: str | Path = "data/budget.db",
+    ):
+        self.database = BudgetDatabase(
+            database_path
+        )
 
-    def add_transaction(self, transaction: Transaction) -> Transaction:
-        learned_category = self.categories.categorize(transaction)
+        self.transactions = TransactionManager(
+            self.database
+        )
+
+        self.categories = CategoryManager(
+            self.database
+        )
+
+    def add_transaction(
+        self,
+        transaction: Transaction,
+    ) -> Transaction:
+        learned_category = (
+            self.categories.categorize(
+                transaction
+            )
+        )
 
         if learned_category is not None:
-            transaction.category = learned_category
+            transaction.category = (
+                learned_category
+            )
 
-        self.transactions.add_transaction(transaction)
+        self.transactions.add_transaction(
+            transaction
+        )
 
         return transaction
 
-    def needs_category(self, transaction: Transaction) -> bool:
+    def needs_category(
+        self,
+        transaction: Transaction,
+    ) -> bool:
         return transaction.category is None
 
     def learn_transaction_category(
@@ -33,5 +65,15 @@ class BudgetService:
 
         transaction.category = category
 
-    def get_available_categories(self) -> list[str]:
+        self.transactions.update_category(
+            transaction.transaction_id,
+            category,
+        )
+
+    def get_available_categories(
+        self,
+    ) -> list[str]:
         return DEFAULT_CATEGORIES.copy()
+
+    def close(self) -> None:
+        self.database.close()

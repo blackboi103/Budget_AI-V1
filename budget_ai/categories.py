@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 
 from budget_ai.contracts import Transaction
+from budget_ai.database import BudgetDatabase
 
 
 CATEGORY_GROUPS = {
     "Income": [
-        "Respiratory",      # your job
+        "Respiratory",
         "Income 2",
         "Sent By Mom",
     ],
@@ -24,7 +25,7 @@ CATEGORY_GROUPS = {
     ],
 
     "Wants": [
-        "Stuff",            # miscellaneous purchases
+        "Stuff",
         "Angel",
         "Family",
         "Food",
@@ -53,29 +54,66 @@ class CategoryRule:
 
 
 class CategoryManager:
-    def __init__(self):
-        self._rules: dict[str, str] = {}
+    def __init__(
+        self,
+        database: BudgetDatabase | None = None,
+    ):
+        if database is None:
+            database = BudgetDatabase(":memory:")
 
-    def _normalize_merchant(self, description: str) -> str:
+        self.database = database
+
+    def _normalize_merchant(
+        self,
+        description: str,
+    ) -> str:
         return description.strip().lower()
 
-    def learn_category(self, merchant: str, category: str) -> None:
+    def learn_category(
+        self,
+        merchant: str,
+        category: str,
+    ) -> None:
         if category not in DEFAULT_CATEGORIES:
-            raise ValueError(f"Unknown category: {category}")
+            raise ValueError(
+                f"Unknown category: {category}"
+            )
 
-        normalized = self._normalize_merchant(merchant)
-        self._rules[normalized] = category
+        normalized = self._normalize_merchant(
+            merchant
+        )
 
-    def get_learned_category(self, merchant: str) -> str | None:
-        normalized = self._normalize_merchant(merchant)
-        return self._rules.get(normalized)
+        self.database.save_category_rule(
+            normalized,
+            category,
+        )
 
-    def categorize(self, transaction: Transaction) -> str | None:
-        return self.get_learned_category(transaction.description)
+    def get_learned_category(
+        self,
+        merchant: str,
+    ) -> str | None:
+        normalized = self._normalize_merchant(
+            merchant
+        )
+
+        return self.database.get_category_rule(
+            normalized
+        )
+
+    def categorize(
+        self,
+        transaction: Transaction,
+    ) -> str | None:
+        return self.get_learned_category(
+            transaction.description
+        )
 
     def correct_category(
         self,
         merchant: str,
         new_category: str,
     ) -> None:
-        self.learn_category(merchant, new_category)
+        self.learn_category(
+            merchant,
+            new_category,
+        )
