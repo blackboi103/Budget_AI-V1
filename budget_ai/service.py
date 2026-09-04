@@ -8,6 +8,7 @@ from budget_ai.contracts import Transaction
 from budget_ai.database import BudgetDatabase
 from budget_ai.excel import ExcelBudgetWriter
 from budget_ai.transactions import TransactionManager
+from budget_ai.review import ReviewQueue
 
 
 class BudgetService:
@@ -22,6 +23,9 @@ class BudgetService:
         )
 
         self.categories = CategoryManager(
+            self.database
+        )
+        self.review_queue = ReviewQueue(
             self.database
         )
 

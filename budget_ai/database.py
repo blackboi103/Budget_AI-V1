@@ -7,14 +7,23 @@ from budget_ai.contracts import Transaction, TransactionType
 
 
 class BudgetDatabase:
-    def __init__(self, database_path: str | Path = "data/budget.db"):
+    def __init__(
+        self,
+        database_path: str | Path = "data/budget.db",
+    ):
         self.database_path = str(database_path)
 
         if self.database_path != ":memory:":
             path = Path(self.database_path)
-            path.parent.mkdir(parents=True, exist_ok=True)
+            path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
 
-        self.connection = sqlite3.connect(self.database_path)
+        self.connection = sqlite3.connect(
+            self.database_path
+        )
+
         self.connection.row_factory = sqlite3.Row
 
         self._create_tables()
@@ -44,7 +53,28 @@ class BudgetDatabase:
                 """
             )
 
-    def add_transaction(self, transaction: Transaction) -> None:
+            self.connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS review_items (
+                    review_id TEXT PRIMARY KEY,
+                    transaction_id TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    note TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+    # --------------------------------------------------
+    # TRANSACTIONS
+    # --------------------------------------------------
+
+    def add_transaction(
+        self,
+        transaction: Transaction,
+    ) -> None:
         try:
             with self.connection:
                 self.connection.execute(
@@ -71,7 +101,9 @@ class BudgetDatabase:
 
         except sqlite3.IntegrityError as exc:
             raise ValueError(
-                f"Transaction '{transaction.transaction_id}' already exists."
+                f"Transaction "
+                f"'{transaction.transaction_id}' "
+                "already exists."
             ) from exc
 
     def get_transaction(
@@ -92,12 +124,16 @@ class BudgetDatabase:
 
         return self._row_to_transaction(row)
 
-    def list_transactions(self) -> list[Transaction]:
+    def list_transactions(
+        self,
+    ) -> list[Transaction]:
         rows = self.connection.execute(
             """
             SELECT *
             FROM transactions
-            ORDER BY transaction_date, transaction_id
+            ORDER BY
+                transaction_date,
+                transaction_id
             """
         ).fetchall()
 
@@ -106,7 +142,9 @@ class BudgetDatabase:
             for row in rows
         ]
 
-    def count_transactions(self) -> int:
+    def count_transactions(
+        self,
+    ) -> int:
         row = self.connection.execute(
             """
             SELECT COUNT(*) AS count
@@ -136,8 +174,14 @@ class BudgetDatabase:
 
         if cursor.rowcount == 0:
             raise KeyError(
-                f"Transaction '{transaction_id}' does not exist."
+                f"Transaction "
+                f"'{transaction_id}' "
+                "does not exist."
             )
+
+    # --------------------------------------------------
+    # CATEGORY RULES
+    # --------------------------------------------------
 
     def save_category_rule(
         self,
@@ -182,6 +226,96 @@ class BudgetDatabase:
 
         return row["category"]
 
+    # --------------------------------------------------
+    # REVIEW QUEUE
+    # --------------------------------------------------
+
+    def add_review_item(
+        self,
+        review_id: str,
+        transaction_id: str,
+        reason: str,
+        status: str,
+        note: str | None = None,
+    ) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT OR IGNORE INTO review_items (
+                    review_id,
+                    transaction_id,
+                    reason,
+                    status,
+                    note
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    review_id,
+                    transaction_id,
+                    reason,
+                    status,
+                    note,
+                ),
+            )
+
+    def list_review_items(
+        self,
+        status: str | None = None,
+    ) -> list[sqlite3.Row]:
+        if status is None:
+            rows = self.connection.execute(
+                """
+                SELECT *
+                FROM review_items
+                ORDER BY created_at
+                """
+            ).fetchall()
+
+        else:
+            rows = self.connection.execute(
+                """
+                SELECT *
+                FROM review_items
+                WHERE status = ?
+                ORDER BY created_at
+                """,
+                (status,),
+            ).fetchall()
+
+        return rows
+
+    def update_review_status(
+        self,
+        review_id: str,
+        status: str,
+    ) -> None:
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE review_items
+                SET
+                    status = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE review_id = ?
+                """,
+                (
+                    status,
+                    review_id,
+                ),
+            )
+
+        if cursor.rowcount == 0:
+            raise KeyError(
+                f"Review item "
+                f"'{review_id}' "
+                "does not exist."
+            )
+
+    # --------------------------------------------------
+    # INTERNAL HELPERS
+    # --------------------------------------------------
+
     def _row_to_transaction(
         self,
         row: sqlite3.Row,
@@ -192,12 +326,16 @@ class BudgetDatabase:
                 row["transaction_date"]
             ),
             description=row["description"],
-            amount=Decimal(row["amount"]),
+            amount=Decimal(
+                row["amount"]
+            ),
             transaction_type=TransactionType(
                 row["transaction_type"]
             ),
             category=row["category"],
         )
 
-    def close(self) -> None:
+    def close(
+        self,
+    ) -> None:
         self.connection.close()
