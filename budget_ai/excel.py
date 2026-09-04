@@ -38,6 +38,11 @@ class ExcelBudgetWriter:
         worksheet,
         month: int,
     ) -> int:
+        if month < 1 or month > 12:
+            raise ValueError(
+                f"Invalid month: {month}"
+            )
+
         month_name = month_abbr[month]
 
         cell = self._find_cell(
@@ -47,8 +52,8 @@ class ExcelBudgetWriter:
 
         if cell is None:
             raise ValueError(
-                f"Could not find month '{month_name}' "
-                "in the spreadsheet."
+                f"Could not find month "
+                f"'{month_name}' in the spreadsheet."
             )
 
         return cell.column
@@ -130,7 +135,10 @@ class ExcelBudgetWriter:
         if output_path is None:
             output_path = (
                 self.workbook_path.parent
-                / f"{self.workbook_path.stem}_BudgetAI.xlsx"
+                / (
+                    f"{self.workbook_path.stem}"
+                    "_BudgetAI.xlsx"
+                )
             )
 
         output_path = Path(output_path)
@@ -147,6 +155,22 @@ class ExcelBudgetWriter:
         month: int,
         output_path: str | Path | None = None,
     ) -> Path:
+        month_transactions = [
+            transaction
+            for transaction in transactions
+            if (
+                transaction.transaction_date.year == year
+                and transaction.transaction_date.month == month
+            )
+        ]
+
+        if not month_transactions:
+            raise ValueError(
+                f"No transactions found for "
+                f"{month_abbr[month]} {year}. "
+                "Excel sync cancelled."
+            )
+
         workbook = load_workbook(
             self.workbook_path
         )
@@ -190,7 +214,10 @@ class ExcelBudgetWriter:
         if output_path is None:
             output_path = (
                 self.workbook_path.parent
-                / f"{self.workbook_path.stem}_BudgetAI.xlsx"
+                / (
+                    f"{self.workbook_path.stem}"
+                    "_BudgetAI.xlsx"
+                )
             )
 
         output_path = Path(output_path)
