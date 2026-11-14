@@ -5,3 +5,12 @@ __pycache__/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+*.pdf
+# Financial artifacts and credentials must stay private.
+*.xlsx
+.env.*
+!.env.example
+data/*.db-*
+data/*.sqlite-*
+data/*.sqlite3-*
+reports/
